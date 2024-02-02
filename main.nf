@@ -2,6 +2,7 @@ $HOSTNAME = ""
 params.outdir = 'results'  
 
 evaluate(new File("nextflow_header.config"))
+params.metadata.metadata = "${projectDir}/tools.json"
 
 if (!params.mate){params.mate = ""} 
 if (!params.reads){params.reads = ""} 
@@ -2289,8 +2290,9 @@ args = params.parse_headers.args
 
 if(method=="collapse" || method=="copy" || method=="rename" || method=="merge"){
 	out="_reheader.fastq"
+	act = (act=="none") ? "" : "--act ${act}"
 	"""
-	ParseHeaders.py  ${method} -s ${reads} ${args} --act ${act}
+	ParseHeaders.py  ${method} -s ${reads} ${args} ${act}
 	"""
 }else{
 	if(method=="table"){
@@ -2362,8 +2364,9 @@ args = params.parse_headers_table.args
 
 if(method=="collapse" || method=="copy" || method=="rename" || method=="merge"){
 	out="_reheader.fastq"
+	act = (act=="none") ? "" : "--act ${act}"
 	"""
-	ParseHeaders.py  ${method} -s ${reads} ${args} --act ${act}
+	ParseHeaders.py  ${method} -s ${reads} ${args} ${act}
 	"""
 }else{
 	if(method=="table"){
@@ -2403,6 +2406,8 @@ awk '/^>/{f=""; if(\$0 ~ "IG"){f="${name}_IG.fasta"} else {f="${name}_TCR.fasta"
 
 process split_constant {
 
+publishDir params.outdir, mode: 'copy', saveAs: {filename -> if (filename =~ /.*_Light.*$/) "final_reads_light/$filename"}
+publishDir params.outdir, mode: 'copy', saveAs: {filename -> if (filename =~ /.*_Heavy.*$/) "final_reads_heavy/$filename"}
 input:
  set val(name),file(reads) from g_71_reads0_g_72
 
@@ -2603,6 +2608,62 @@ output:
 rmarkdown::render("${rmk}", clean=TRUE, output_format="html_document", output_dir=".")
 
 """
+}
+
+
+process metadata {
+
+publishDir params.outdir, mode: 'copy', saveAs: {filename -> if (filename =~ /.*.json$/) "metadata/$filename"}
+
+output:
+ file "*.json"  into g_85_jsonFile00
+
+script:
+metadata = params.metadata.metadata
+"""
+#!/usr/bin/env Rscript
+
+if (!requireNamespace("jsonlite", quietly = TRUE)) {
+  install.packages("jsonlite")
+}
+library(jsonlite)
+
+data <- read_json("${metadata}") 
+
+versions <- lapply(1:length(data), function(i){
+	
+	docker <- data[i]
+	tool <- names(data)[i]
+	
+	if(grepl("Custom", docker)){
+		ver <- "0.0"
+	}else{
+		ver <- system(paste0(tool," --version"), intern = TRUE)
+		ver <- gsub(paste0(tool,": "), "", ver)
+	}
+	ver
+	
+})
+
+names(versions) <- names(data)
+
+json_data <- list(
+  sample = list(
+    data_processing = list(
+      preprocessing = list(
+        software_versions = versions
+	   )
+	 )
+  )
+)
+
+# Convert to JSON string without enclosing scalar values in arrays
+json_string <- toJSON(json_data, pretty = TRUE, auto_unbox = TRUE)
+print(json_string)
+# Write the JSON string to a file
+writeLines(json_string, "preprocessed_metadata.json")
+"""
+
 }
 
 

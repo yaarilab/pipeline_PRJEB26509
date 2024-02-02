@@ -1,0 +1,10 @@
+{
+    "FilterSeq.py":"immcantation/suite:4.3.0",
+    "MaskPrimers.py":"immcantation/suite:4.3.0",
+    "PairAwk.py":"Custom script",
+    "AlignSets.py":"immcantation/suite:4.3.0",
+    "BuildConsensus.py":"immcantation/suite:4.3.0",
+    "AssemblePairs.py":"immcantation/suite:4.3.0",
+    "CollapseSeq.py":"immcantation/suite:4.3.0",
+    "SplitSeq.py":"Custom script"
+}
