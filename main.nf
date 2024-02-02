@@ -8,7 +8,7 @@ if (!params.mate){params.mate = ""}
 if (!params.reads){params.reads = ""} 
 if (!params.mate2){params.mate2 = ""} 
 
-Channel.value(params.mate).into{g_1_mate_g_84;g_1_mate_g_55;g_1_mate_g28_15;g_1_mate_g28_19;g_1_mate_g28_12;g_1_mate_g52_8;g_1_mate_g52_1;g_1_mate_g52_0;g_1_mate_g78_15;g_1_mate_g78_19;g_1_mate_g78_12;g_1_mate_g9_7;g_1_mate_g9_5;g_1_mate_g9_0;g_1_mate_g38_9;g_1_mate_g38_12;g_1_mate_g38_11;g_1_mate_g22_14;g_1_mate_g22_12;g_1_mate_g22_10}
+Channel.value(params.mate).into{g_1_mate_g_84;g_1_mate_g_55;g_1_mate_g9_7;g_1_mate_g9_5;g_1_mate_g9_0;g_1_mate_g38_9;g_1_mate_g38_12;g_1_mate_g38_11;g_1_mate_g22_14;g_1_mate_g22_12;g_1_mate_g22_10;g_1_mate_g52_8;g_1_mate_g52_1;g_1_mate_g52_0;g_1_mate_g28_15;g_1_mate_g28_19;g_1_mate_g28_12;g_1_mate_g78_15;g_1_mate_g78_19;g_1_mate_g78_12}
 if (params.reads){
 Channel
 	.fromFilePairs( params.reads , size: params.mate == "single" ? 1 : params.mate == "pair" ? 2 : params.mate == "triple" ? 3 : params.mate == "quadruple" ? 4 : -1 )
@@ -361,6 +361,93 @@ if(mate=="pair"){
 }
 
 
+process PairAwk_P1 {
+
+input:
+ set val(name), file(reads) from g38_11_reads0_g_55
+ val mate from g_1_mate_g_55
+
+output:
+ set val(name), file("*pair-pass.fastq")  into g_55_reads0_g52_0
+
+script:
+
+if(mate=="pair"){
+	readArray = reads.toString().split(' ')	
+	
+	R1 = readArray[0].toString()
+	R2 = readArray[1].toString()
+	
+
+	
+	"""
+	BEGINING1=\$(echo $R1|awk '{split(\$0,a,".fa");print a[1];}')
+	BEGINING2=\$(echo $R2|awk '{split(\$0,a,".fa");print a[1];}')
+	
+	awk -v out1="\${BEGINING1}_pair-pass.fastq" -v out2="\${BEGINING2}_pair-pass.fastq" 'NR==FNR{
+	  if(NR%4==1){
+	    n=split(\$0,a,"/");
+	    if(n==1) split(\$0,a," ");
+	    NAME=a[1];
+	    split(a[2],b,"|");
+	    split(b[1],c,"=");
+	    #SEQORIENT[a[1]]=c[2];
+	    split(b[2],c,"=");
+	    PRIMER[a[1]]=c[2];
+	#     print a[1];
+	  }
+	  if(NR%4==2)SEQ[NAME]=\$0;
+	  if(NR%4==0)QUAL[NAME]=\$0;
+	  next;
+	}
+	NR%4==1{
+	  flag=0;
+	  n=split(\$0,a,"/");
+	  if(n==1) split(\$0,a," ");
+	  if(a[1] in SEQ)flag=1;
+	    split(a[2],b,"|");
+	    split(b[1],c,"=");
+	    split(b[2],d,"=");
+	    print a[1];   
+	    print a[2];
+	    
+	}
+	flag==1{
+	  if(NR%4==1){
+		 print a[1] "/1|PRIMER=" PRIMER[a[1]] "," d[2] "|" b[3] > out1;
+	     print a[1] "/2|PRIMER=" PRIMER[a[1]] "," d[2] "|" b[3] > out2;
+	#    print a[1] "/1|SEQORIENT=" SEQORIENT[a[1]] "," c[2] "|PRIMER=" PRIMER[a[1]] "|" b[3] > out1;
+	#    print a[1] "/2|SEQORIENT=" SEQORIENT[a[1]] "," c[2] "|PRIMER="  d[2] "|" b[3] > out2;
+	    next;
+	  }
+	  if(NR%4==2){
+	    print SEQ[a[1]] > out1;
+	    print \$0 > out2;
+	    next;
+	  }
+	  if(NR%4==3){
+	    print "+" > out1;
+	    print \$0 > out2;
+	    next;
+	  }
+	  if(NR%4==0){
+	    print QUAL[a[1]] > out1;
+	    print \$0 > out2;
+	    next;
+	  }
+	} ' $R1 $R2
+	
+	"""
+}else{
+	
+	"""
+	echo -e 'PairAwk works only on pair-end reads.'
+	"""
+}
+
+}
+
+
 process Mask_Primer_parse_log_MP {
 
 publishDir params.outdir, mode: 'copy', saveAs: {filename -> if (filename =~ /.*.tab$/) "MP_log_table/$filename"}
@@ -589,93 +676,6 @@ rmarkdown::render("${rmk}", clean=TRUE, output_format="html_document", output_di
 }
 
 
-process PairAwk_P1 {
-
-input:
- set val(name), file(reads) from g38_11_reads0_g_55
- val mate from g_1_mate_g_55
-
-output:
- set val(name), file("*pair-pass.fastq")  into g_55_reads0_g52_0
-
-script:
-
-if(mate=="pair"){
-	readArray = reads.toString().split(' ')	
-	
-	R1 = readArray[0].toString()
-	R2 = readArray[1].toString()
-	
-
-	
-	"""
-	BEGINING1=\$(echo $R1|awk '{split(\$0,a,".fa");print a[1];}')
-	BEGINING2=\$(echo $R2|awk '{split(\$0,a,".fa");print a[1];}')
-	
-	awk -v out1="\${BEGINING1}_pair-pass.fastq" -v out2="\${BEGINING2}_pair-pass.fastq" 'NR==FNR{
-	  if(NR%4==1){
-	    n=split(\$0,a,"/");
-	    if(n==1) split(\$0,a," ");
-	    NAME=a[1];
-	    split(a[2],b,"|");
-	    split(b[2],c,"=");
-	    SEQORIENT[a[1]]=c[2];
-	    split(b[3],c,"=");
-	    PRIMER[a[1]]=c[2];
-	#     print a[1];
-	  }
-	  if(NR%4==2)SEQ[NAME]=\$0;
-	  if(NR%4==0)QUAL[NAME]=\$0;
-	  next;
-	}
-	NR%4==1{
-	  flag=0;
-	  n=split(\$0,a,"/");
-	  if(n==1) split(\$0,a," ");
-	  if(a[1] in SEQ)flag=1;
-	    split(a[2],b,"|");
-	    split(b[2],c,"=");
-	    split(b[3],d,"=");
-	    print a[1];   
-	    print a[2];
-	    
-	}
-	flag==1{
-	  if(NR%4==1){
-    	print a[1] "/1|SEQORIENT=" SEQORIENT[a[1]] "," c[2] "|PRIMER=" PRIMER[a[1]] "," d[2] "|" b[4] > out1;
-    	print a[1] "/2|SEQORIENT=" SEQORIENT[a[1]] "," c[2] "|PRIMER=" PRIMER[a[1]] "," d[2] "|" b[4] > out2;
-	#    print a[1] "/1|SEQORIENT=" SEQORIENT[a[1]] "," c[2] "|PRIMER=" PRIMER[a[1]] "|" b[3] > out1;
-	#    print a[1] "/2|SEQORIENT=" SEQORIENT[a[1]] "," c[2] "|PRIMER="  d[2] "|" b[3] > out2;
-	    next;
-	  }
-	  if(NR%4==2){
-	    print SEQ[a[1]] > out1;
-	    print \$0 > out2;
-	    next;
-	  }
-	  if(NR%4==3){
-	    print "+" > out1;
-	    print \$0 > out2;
-	    next;
-	  }
-	  if(NR%4==0){
-	    print QUAL[a[1]] > out1;
-	    print \$0 > out2;
-	    next;
-	  }
-	} ' $R1 $R2
-	
-	"""
-}else{
-	
-	"""
-	echo -e 'PairAwk works only on pair-end reads.'
-	"""
-}
-
-}
-
-
 process Align_Sets_align_sets {
 
 input:
@@ -696,7 +696,7 @@ failed = params.Align_Sets_align_sets.failed
 nproc = params.Align_Sets_align_sets.nproc
 
 muscle_exec = params.Align_Sets_align_sets.muscle_exec
-
+muscle_version = params.Align_Sets_align_sets.muscle_version
 offset_table = params.Align_Sets_align_sets.offset_table
 pf = params.Align_Sets_align_sets.pf
 mode = params.Align_Sets_align_sets.mode
@@ -704,7 +704,7 @@ mode = params.Align_Sets_align_sets.mode
 primer_file = params.Align_Sets_align_sets.primer_file
 reverse = params.Align_Sets_align_sets.reverse
 
-//* @style @condition:{method="muscle",muscle_exec}, {method="offset",offset_table,pf,mode}, {method="table",muscle_exec,primer_file,reverse} @multicolumn:{method,bf,div,nproc},{offset,pf,mode}, {primer_file,reverse}
+//* @style @condition:{method="muscle",muscle_exec,muscle_version}, {method="offset",offset_table,pf,mode}, {method="table",muscle_exec,primer_file,reverse} @multicolumn:{method,bf,div,nproc},{offset,pf,mode}, {primer_file,reverse}
 
 
 readArray = reads.toString().split(' ')	
@@ -712,7 +712,7 @@ readArray = reads.toString().split(' ')
 reverse_arg = (reverse=="false") ? "" : "--reverse"
 div_arg = (div=="false") ? "" : "--div"
 failed_arg = (failed=="true") ? "--failed" : "" 
-bf = "--bf ${bf}"
+bf = (bf=="") ? "" : "--bf ${bf}"
 
 primer_file_argv = ""
 
@@ -725,7 +725,6 @@ if(method=="offset"){
 	pf = ""
 	mode = ""
 	offset_table_argv = ""
-	muscle_exec_argv = "--exec ${muscle_exec}"
 	
 	if(method=="table"){
 		primer_file_argv = "-p ${primer_file}"
@@ -738,14 +737,42 @@ if(mate=="pair"){
 	
 	
 	"""
-	AlignSets.py ${method} -s ${R1} ${bf} ${muscle_exec_argv} ${div_arg} ${reverse_arg} ${failed_arg} ${pf} ${offset_table_argv} ${mode} ${primer_file_argv} --log AS_R1_${name}.log --nproc ${nproc} >> out_${R1}_AS.log
-	AlignSets.py ${method} -s ${R2} ${bf} ${muscle_exec_argv} ${div_arg} ${reverse_arg} ${failed_arg} ${pf} ${offset_table_argv} ${mode} ${primer_file_argv} --log AS_R2_${name}.log --nproc ${nproc} >> out_${R1}_AS.log
+	if [ "${method}" == "muscle" ]; then
+		if  [ "${muscle_version}" != "" ]; then
+			wget -q --show-progress --no-check-certificate https://drive5.com/muscle/downloads${muscle_version}/muscle${muscle_version}_i86linux64.tar.gz
+			tar -xvzf muscle${muscle_version}_i86linux64.tar.gz
+			chmod +x muscle${muscle_version}_i86linux64
+			mv muscle${muscle_version}_i86linux64 /usr/local/bin/muscle2
+			muscle_exec_argv="--exec /usr/local/bin/muscle2"
+		else
+			muscle_exec_argv="--exec ${muscle_exec}"
+		fi
+	else
+		muscle_exec_argv=""
+	fi
+	
+	AlignSets.py ${method} -s ${R1} ${bf} \$muscle_exec_argv ${div_arg} ${reverse_arg} ${failed_arg} ${pf} ${offset_table_argv} ${mode} ${primer_file_argv} --log AS_R1_${name}.log --nproc ${nproc} | tee -a out_${R1}_AS.log
+	AlignSets.py ${method} -s ${R2} ${bf} \$muscle_exec_argv ${div_arg} ${reverse_arg} ${failed_arg} ${pf} ${offset_table_argv} ${mode} ${primer_file_argv} --log AS_R2_${name}.log --nproc ${nproc} | tee -a out_${R1}_AS.log
 	"""
 	
 }else{
 	R1 = readArray[0]
 	"""
-	AlignSets.py ${method} -s ${R1} ${bf} ${muscle_exec_argv} ${div_arg} ${reverse_arg} ${failed_arg} ${pf} ${offset_table_argv} ${mode} ${primer_file_argv} --log AS_R1_${name}.log --nproc ${nproc} >> out_${R1}_AS.log
+	if [ "${method}" == "muscle" ]; then
+		if  [ "${muscle_version}" != "" ]; then
+			wget -q --show-progress --no-check-certificate https://drive5.com/muscle/downloads${muscle_version}/muscle${muscle_version}_i86linux64.tar.gz
+			tar -xvzf muscle${muscle_version}_i86linux64.tar.gz
+			chmod +x muscle${muscle_version}_i86linux64
+			mv muscle${muscle_version}_i86linux64 /usr/local/bin/muscle2
+			muscle_exec_argv="--exec /usr/local/bin/muscle2"
+		else
+			muscle_exec_argv="--exec ${muscle_exec}"
+		fi
+	else
+		muscle_exec_argv=""
+	fi
+	
+	AlignSets.py ${method} -s ${R1} ${bf} \$muscle_exec_argv ${div_arg} ${reverse_arg} ${failed_arg} ${pf} ${offset_table_argv} ${mode} ${primer_file_argv} --log AS_R1_${name}.log --nproc ${nproc} | tee -a out_${R1}_AS.log
 	"""
 }
 
